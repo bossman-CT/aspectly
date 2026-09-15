@@ -10,15 +10,58 @@ fits, and lets you park the resulting black bar on whichever side suits your gri
 Measured on a real Fold 8: a 16:9 window comes out **1111x1972** — a ratio of 0.5634
 against 9:16's 0.5625. The crop is gone.
 
+## Why does this need ADB access?
+
+Short answer: **Android gives no other way to do it.** Changing how a *different* app
+is windowed is a privileged operation. There is no public API, no permission you can
+request, and no user-facing setting that covers it — Samsung's own "App aspect ratios"
+menu does not offer the control for the apps that need it most.
+
+So Aspectly connects to the device's own ADB daemon over **loopback (127.0.0.1)**. That
+is a high level of access and you should treat it as such. Here is exactly what it
+means.
+
+**What Aspectly does with it** — five commands, and no others:
+
+```
+am compat disable UNIVERSAL_RESIZABLE_BY_DEFAULT        <package>
+am compat disable OVERRIDE_MIN_ASPECT_RATIO_PORTRAIT_ONLY <package>
+am compat enable  OVERRIDE_MIN_ASPECT_RATIO             <package>
+am compat enable  OVERRIDE_MIN_ASPECT_RATIO_LARGE       <package>
+wm set-letterbox-style --horizontalPositionMultiplier ... --cornerRadius 0
+```
+
+They are built in [`AspectlyCommands.kt`](app/src/main/java/io/github/bossmanct/aspectly/adb/AspectlyCommands.kt),
+package names are regex-validated against installed packages, and there is no code path
+that runs a string from anywhere else.
+
+**What it never does:**
+
+- Run a command you did not trigger
+- Accept a command from another app — `MainActivity` is the only exported component and
+  it takes no input. An exported surface that accepted commands would turn any bug here
+  into a device-wide privilege escalation
+- Send anything off your device. There is no analytics SDK, no crash reporter, no
+  telemetry. Traffic goes to `127.0.0.1` and nowhere else
+
+**The key:** pairing generates an RSA key that is, in effect, shell access to your
+phone. It is encrypted at rest with a hardware-backed AES key in the Android Keystore,
+and `allowBackup` is disabled so it cannot leave in a cloud backup.
+
+**You can revoke it any time:** Settings → Developer options → Wireless debugging → off.
+Aspectly stops working immediately.
+
+**And you can check all of this**, which is the point of the repo being public. There is
+also an in-app activity log recording every command Aspectly has run, with timestamps —
+open source proves what the app *can* do, the log proves what it *did*.
+
 ## How it works
 
-Android only lets privileged processes change how other apps are windowed. Aspectly
-connects to the device's own ADB daemon over loopback and runs a **fixed, hardcoded set
-of commands** — four compat overrides that set an app's minimum aspect ratio, and one
-that controls letterbox position.
-
-There is no Shizuku dependency. Aspectly does the ADB pairing itself, so setup is one
-pairing and then nothing.
+Aspectly does the ADB pairing itself, so there is no Shizuku dependency and setup is one
+pairing and then nothing. It discovers adbd by scanning loopback, because Android
+randomises the wireless debugging port on every boot — see
+[ADB-NOTES.md](ADB-NOTES.md) for why mDNS is no longer an option and eleven other things
+that were not documented anywhere.
 
 ## Restarting your phone undoes everything
 
