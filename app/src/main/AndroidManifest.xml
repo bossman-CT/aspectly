@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        Loopback only. Aspectly talks to this device's own adbd over 127.0.0.1.
+        It never contacts a remote host.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+        Needed to show the user a list of their installed apps to configure, and to
+        read each app's targetSdk so we can say honestly whether it is still
+        controllable. Requires a Play Console declaration.
+    -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <!-- Samsung wipes the aspect ratio override at boot; we reapply it. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application
+        android:name=".AspectlyApp"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Aspectly">
+
+        <!--
+            SECURITY: MainActivity is the only exported component, and it accepts no
+            input. Nothing in this app exposes a way for another app to request that a
+            command be run. Aspectly holds shell-level access; any exported surface
+            that took a command would be a device-wide privilege escalation.
+        -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".boot.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>

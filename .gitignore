@@ -1,0 +1,28 @@
+# Local toolchain — lives inside the project folder, must never be committed
+/sdk/
+/jdk/
+/avd/
+/dl/
+/shots/
+
+# Android / Gradle
+# No leading slash: these must match at any depth, not just the repo root.
+*.iml
+.gradle/
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild
+.cxx
+local.properties
+
+# Keys and signing — never commit these
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+
+# The ADB private key grants shell access to a device. Never commit test keys.
+*.adbkey
+adbkey*
