@@ -57,12 +57,44 @@ verified on hardware — do not add claims we have not tested.
 > Android clears the setting Aspectly depends on every time your phone restarts. So if
 > anything goes wrong — Aspectly misbehaves, you uninstall it, an app looks broken —
 > restart the phone. Nothing Aspectly changes survives a reboot on its own.
->
-> It's also why Aspectly reconnects and reapplies your settings after each restart.
 
 Verified twice on the Fold 8: `OVERRIDE_MIN_ASPECT_RATIO_LARGE` is wiped at boot and
 `areBoundsLetterboxed` returns `false`. This claim is true and is the strongest one we
 have. Lead with it.
+
+**Do not follow it with "and Aspectly puts it back automatically."** See below.
+
+---
+
+## 3b. After a restart — the limitation, stated up front
+
+This has to be in onboarding. A user who finds it out by noticing their videos are
+cropping again will reasonably conclude the app is broken.
+
+> **After you restart your phone, Aspectly needs one thing from you.**
+>
+> Samsung's Auto Blocker turns off USB debugging when your phone restarts. Wireless
+> debugging quietly depends on it — even though no cable is involved — so both end up
+> off, and Aspectly can't reach your phone to put your settings back.
+>
+> When that happens you'll get a notification saying exactly which switch is off, with
+> a link straight to it. Turn it back on, open Aspectly, tap **Connect and apply**, and
+> everything returns.
+>
+> **Roughly thirty seconds, once per restart.** We'd rather tell you that now than have
+> you discover it later.
+
+**Why we are not fixing this.** We cannot. Enabling those toggles requires the access
+they grant. Auto Blocker also re-enables itself on a timer, so "turn Auto Blocker off"
+is not a real answer either. Every tool in this category has the same ceiling, including
+Shizuku-based ones.
+
+Measured on hardware: after a reboot, five automatic retries over four minutes, every
+one correctly failing because adbd was not running. The retry logic is sound; the daemon
+simply wasn't there.
+
+**Copy rules for this section:** don't bury it behind "Learn more", don't call it a
+"known issue" as though a fix is coming, and don't imply a future version solves it.
 
 ---
 
@@ -94,17 +126,34 @@ it or imply a future version will fix it. It won't.
 
 ## 6. Failure states — never leave someone stranded
 
-> **Couldn't reconnect after restart**
->
-> Aspectly reapplies your settings automatically when your phone restarts, but it
-> couldn't this time. Your apps are running at their normal shape — nothing is broken.
->
-> **[Try again]**  **[Show me how to re-pair]**
+These are the actual strings in `Prerequisite`, which reads `adb_enabled` and
+`adb_wifi_enabled` directly. Because those are readable without any permission, the app
+can always name the specific switch rather than saying "couldn't connect".
 
-> **Wireless debugging is off**
+> **Aspectly: USB debugging is off**
 >
-> Aspectly needs it on to work. Turning it off is also how you revoke Aspectly's
-> access, so if you turned it off on purpose, you're all set — nothing more to do.
+> Wireless debugging needs it enabled, even with no cable attached. Samsung's Auto
+> Blocker turns it off when your phone restarts, which is why your settings stopped
+> applying.
+>
+> *(tapping opens Developer options)*
+
+> **Aspectly: Wireless debugging is off**
+>
+> Aspectly reaches your phone through it. Turning it back on is all that's needed —
+> your pairing is still valid.
+
+The second sentence of each matters as much as the first. "Your pairing is still valid"
+stops people assuming they have to set everything up again, and naming Auto Blocker
+stops them assuming the app broke.
+
+> **Nothing applied right now**
+>
+> Your apps are running at their normal shape. Nothing is broken, and nothing needs
+> undoing.
+
+Use this whenever settings aren't applied. The failure state of this app is *stock
+Android*, which is a genuinely reassuring thing to be able to say — say it.
 
 ---
 
