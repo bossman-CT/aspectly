@@ -17,6 +17,12 @@
     <!-- Samsung wipes the aspect ratio override at boot; we reapply it. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!--
+        Used only to say why settings are not applied — naming the exact developer
+        toggle that is off. Never for marketing or engagement.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".AspectlyApp"
         android:allowBackup="false"

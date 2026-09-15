@@ -1,7 +1,13 @@
 package io.github.bossmanct.aspectly
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import io.github.bossmanct.aspectly.boot.Prerequisite
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
@@ -81,7 +87,27 @@ private fun AspectlyScreen(modifier: Modifier = Modifier) {
     var apps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
     val forced = remember { config.forcedApps.toMutableStateList() }
 
-    LaunchedEffect(Unit) { apps = AppInventory.installedApps(context) }
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { }
+
+    LaunchedEffect(Unit) {
+        apps = AppInventory.installedApps(context)
+
+        // Notifications exist solely to name the toggle that is off when settings stop
+        // applying. Without this the app fails silently and the user finds out when a
+        // video starts cropping again.
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        val blocked = Prerequisite.check(context)
+        if (blocked != Prerequisite.NONE) {
+            status = "${blocked.title}. ${blocked.detail}"
+        }
+    }
 
     // Configured apps float to the top so the ones you actually manage stay reachable.
     val configured = apps
@@ -149,25 +175,25 @@ private fun AspectlyScreen(modifier: Modifier = Modifier) {
             Button(
                 onClick = {
                     scope.launch {
-                        status = "Looking for adbd…"
-                        status = AdbConnection.autoConnect(context).fold(
-                            { connected ->
-                                // Bar position is global and Samsung resets it every
-                                // boot, so connecting without reapplying leaves apps
-                                // letterboxed at the default centre. One command, no
-                                // force-stop, so it is safe to do on every connect.
-                                AdbShell.run(
-                                    context,
-                                    AspectlyCommands.setBarPosition(config.barSide),
-                                )
-                                "$connected — bar ${config.barSide.name.lowercase()}"
-                            },
+                        val blocked = Prerequisite.check(context)
+                        if (blocked != Prerequisite.NONE) {
+                            status = "${blocked.title}. ${blocked.detail}"
+                            return@launch
+                        }
+                        status = "Connecting and applying…"
+                        // Connect means "make reality match my config", not just "open
+                        // a socket". Overrides only take effect when an app launches,
+                        // so Restore force-stops the configured apps — without that,
+                        // an already-running app keeps its old window and the user sees
+                        // nothing change.
+                        status = Restore.run(context).fold(
+                            { "$it, ${config.barSide.description}" },
                             { "Connect failed: ${it.message}" },
                         )
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Connect") }
+            ) { Text("Connect and apply") }
         }
 
         item {
@@ -207,7 +233,7 @@ private fun AspectlyScreen(modifier: Modifier = Modifier) {
                             config.barSide = side
                             scope.launch {
                                 AdbShell.run(context, AspectlyCommands.setBarPosition(side))
-                                status = "Bar moved ${side.name.lowercase()}"
+                                status = "Now showing ${side.description}"
                             }
                         },
                         label = { Text(side.name.lowercase().replaceFirstChar(Char::titlecase)) },

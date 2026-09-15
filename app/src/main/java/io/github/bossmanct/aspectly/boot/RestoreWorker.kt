@@ -40,8 +40,20 @@ class RestoreWorker(
     override suspend fun doWork(): Result {
         ActivityLog.record(applicationContext, "RESTORE attempt ${runAttemptCount + 1}")
 
+        // Retrying is pointless when a toggle is off — adbd is not running and will not
+        // start on its own. Tell the user which one instead of burning attempts.
+        val blocked = Prerequisite.check(applicationContext)
+        if (blocked != Prerequisite.NONE) {
+            ActivityLog.record(applicationContext, "RESTORE blocked: ${blocked.title}")
+            RestoreNotifier.notifyBlocked(applicationContext, blocked)
+            return Result.retry()
+        }
+
         return Restore.run(applicationContext).fold(
-            onSuccess = { Result.success() },
+            onSuccess = {
+                RestoreNotifier.clear(applicationContext)
+                Result.success()
+            },
             onFailure = {
                 if (runAttemptCount >= MAX_ATTEMPTS) {
                     ActivityLog.record(

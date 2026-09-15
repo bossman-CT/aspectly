@@ -83,8 +83,8 @@ object AspectlyCommands {
  * dead space lands where reach is worst — bar on the left puts content under a right
  * thumb.
  */
-enum class BarSide(val multiplier: String) {
-    LEFT("1.0"),
-    CENTER("0.5"),
-    RIGHT("0.0"),
+enum class BarSide(val multiplier: String, val description: String) {
+    LEFT("1.0", "black bar on the left"),
+    CENTER("0.5", "black bars on both sides"),
+    RIGHT("0.0", "black bar on the right"),
 }
