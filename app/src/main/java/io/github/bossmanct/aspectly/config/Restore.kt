@@ -18,9 +18,9 @@ import io.github.bossmanct.aspectly.log.ActivityLog
  */
 object Restore {
 
-    suspend fun run(context: Context): Result<String> = AdbSession.exclusive {
-        runLocked(context)
-    }
+    suspend fun run(context: Context): Result<String> =
+        AdbSession.exclusiveOrNull { runLocked(context) }
+            ?: Result.failure(IllegalStateException("Another restore is still running"))
 
     suspend fun clearAll(context: Context): Result<String> = AdbSession.exclusive {
         clearAllLocked(context)

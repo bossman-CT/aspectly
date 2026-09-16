@@ -4,6 +4,7 @@ import android.content.Context
 import io.github.bossmanct.aspectly.log.ActivityLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 /**
  * Orchestrates discovery, pairing and connection.
@@ -49,6 +50,7 @@ object AdbConnection {
 
     private const val PREFS = "aspectly_adb"
     private const val KEY_LAST_PORT = "last_connect_port"
+    private const val PROBE_TIMEOUT_MS = 8_000L
 
     /**
      * Connects without asking the user anything. This is what runs after a reboot.
@@ -74,8 +76,13 @@ object AdbConnection {
                     // the correct one.
                     AspectlyAdbManager.reset()
                     runCatching {
-                        AspectlyAdbManager.getInstance(context)
-                            .connect(AspectlyAdbManager.LOOPBACK, candidate)
+                        // libadb's connect has no timeout of its own; a port that
+                        // accepts TLS but never completes the ADB handshake would
+                        // otherwise block for over a minute.
+                        withTimeout(PROBE_TIMEOUT_MS) {
+                            AspectlyAdbManager.getInstance(context)
+                                .connect(AspectlyAdbManager.LOOPBACK, candidate)
+                        }
                     }.getOrDefault(false)
                 } ?: error("No adbd found on loopback (probed $probed listening port(s))")
                 val scanMs = System.currentTimeMillis() - scanStart

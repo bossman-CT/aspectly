@@ -2,6 +2,7 @@ package io.github.bossmanct.aspectly.adb
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Serialises every operation that talks to adbd.
@@ -27,6 +28,16 @@ object AdbSession {
     private val mutex = Mutex()
 
     suspend fun <T> exclusive(block: suspend () -> T): T = mutex.withLock { block() }
+
+    /**
+     * Waits [timeoutMs] for the lock, then gives up rather than blocking forever.
+     *
+     * A background restore that hangs mid-command would otherwise hold the lock
+     * indefinitely and every tap would queue behind it — which looked exactly like the
+     * UI freezing on "Connecting and applying".
+     */
+    suspend fun <T> exclusiveOrNull(timeoutMs: Long = 45_000, block: suspend () -> T): T? =
+        withTimeoutOrNull(timeoutMs) { mutex.withLock { block() } }
 
     val isBusy: Boolean get() = mutex.isLocked
 }
