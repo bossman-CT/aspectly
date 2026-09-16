@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import io.github.bossmanct.aspectly.boot.Prerequisite
+import io.github.bossmanct.aspectly.boot.SelfRepair
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +49,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.Image
 import androidx.core.graphics.drawable.toBitmap
 import io.github.bossmanct.aspectly.adb.AdbConnection
+import io.github.bossmanct.aspectly.adb.AdbSession
 import io.github.bossmanct.aspectly.adb.AdbShell
 import io.github.bossmanct.aspectly.adb.AspectlyCommands
 import io.github.bossmanct.aspectly.adb.BarSide
@@ -84,6 +86,7 @@ private fun AspectlyScreen(modifier: Modifier = Modifier) {
     var code by remember { mutableStateOf("") }
     var barSide by remember { mutableStateOf(config.barSide) }
     var pairingExpanded by remember { mutableStateOf(!config.hasPaired) }
+    var selfRepair by remember { mutableStateOf(SelfRepair.isGranted(context)) }
     var apps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
     val forced = remember { config.forcedApps.toMutableStateList() }
 
@@ -128,7 +131,7 @@ private fun AspectlyScreen(modifier: Modifier = Modifier) {
             } else {
                 AspectlyCommands.clearAspectRatio(app.packageName)
             }
-            status = AdbShell.runAll(context, commands).fold(
+            status = AdbSession.exclusive { AdbShell.runAll(context, commands) }.fold(
                 {
                     if (on) {
                         // Applying the override is not the same as it having an effect.
@@ -221,6 +224,47 @@ private fun AspectlyScreen(modifier: Modifier = Modifier) {
         }
 
         item {
+            SelfRepairRow(
+                granted = selfRepair,
+                onGrant = {
+                    scope.launch {
+                        status = "Granting…"
+                        status = AdbSession.exclusive {
+                            AdbShell.run(
+                                context,
+                                AspectlyCommands.grantSelfSecureSettings(context.packageName),
+                            )
+                        }.fold(
+                            {
+                                selfRepair = SelfRepair.isGranted(context)
+                                if (selfRepair) {
+                                    "Aspectly can now restore itself after a restart"
+                                } else {
+                                    "Grant did not take effect — reopen Aspectly and check"
+                                }
+                            },
+                            { "Grant failed: ${it.message}" },
+                        )
+                    }
+                },
+                onRevoke = {
+                    scope.launch {
+                        status = "Revoking…"
+                        AdbSession.exclusive {
+                            AdbShell.run(
+                                context,
+                                AspectlyCommands.revokeSelfSecureSettings(context.packageName),
+                            )
+                        }
+                        selfRepair = SelfRepair.isGranted(context)
+                        status = "Revoked. You'll need to turn debugging on yourself " +
+                            "after a restart."
+                    }
+                },
+            )
+        }
+
+        item {
             Text("Black bar position", style = MaterialTheme.typography.titleSmall)
         }
         item {
@@ -232,7 +276,9 @@ private fun AspectlyScreen(modifier: Modifier = Modifier) {
                             barSide = side
                             config.barSide = side
                             scope.launch {
-                                AdbShell.run(context, AspectlyCommands.setBarPosition(side))
+                                AdbSession.exclusive {
+                                    AdbShell.run(context, AspectlyCommands.setBarPosition(side))
+                                }
                                 status = "Now showing ${side.description}"
                             }
                         },
@@ -353,6 +399,49 @@ private fun PairingSection(
             onClick = { port.toIntOrNull()?.let { onPair(it, code) } },
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Pair") }
+    }
+}
+
+/**
+ * Opt-in, and deliberately explained rather than presented as a bare switch. It is the
+ * only setting that changes what Aspectly itself can do.
+ */
+@Composable
+private fun SelfRepairRow(
+    granted: Boolean,
+    onGrant: () -> Unit,
+    onRevoke: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                "Restore after a restart",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            Switch(
+                checked = granted,
+                onCheckedChange = { if (it) onGrant() else onRevoke() },
+            )
+        }
+        Text(
+            if (granted) {
+                "Aspectly will turn wireless debugging back on after you restart, and " +
+                    "put your settings back on its own."
+            } else {
+                "Samsung turns off USB debugging when your phone restarts, and wireless " +
+                    "debugging depends on it — so your settings stop applying until you " +
+                    "turn them back on. Switch this on and Aspectly will do it for you. " +
+                    "It needs permission to change developer settings, which it grants " +
+                    "itself over the connection it already has. You can switch this off " +
+                    "at any time."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

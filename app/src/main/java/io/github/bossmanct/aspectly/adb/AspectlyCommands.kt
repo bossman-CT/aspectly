@@ -67,6 +67,28 @@ object AspectlyCommands {
 
     fun clearBarPosition(): String = "wm reset-letterbox-style"
 
+    /**
+     * Grants Aspectly permission to turn wireless debugging back on by itself.
+     *
+     * Opt-in, and the only command here that changes what Aspectly can do rather than
+     * how an app is displayed. Without it the app cannot recover after a restart,
+     * because Samsung's Auto Blocker disables the debugging toggles at boot and
+     * re-enabling them requires the access they grant.
+     *
+     * Narrower than the ADB key already held — shell access is strictly more powerful.
+     * It is used because it survives a reboot.
+     */
+    fun grantSelfSecureSettings(packageName: String): String {
+        val pkg = validated(packageName)
+        return "pm grant $pkg android.permission.WRITE_SECURE_SETTINGS"
+    }
+
+    /** Revokes the above. Paired with it so the grant is never one-way. */
+    fun revokeSelfSecureSettings(packageName: String): String {
+        val pkg = validated(packageName)
+        return "pm revoke $pkg android.permission.WRITE_SECURE_SETTINGS"
+    }
+
     /** Reads which overrides are currently live, so the UI can reconcile rather than assume. */
     fun readCompatState(): String = "dumpsys platform_compat"
 

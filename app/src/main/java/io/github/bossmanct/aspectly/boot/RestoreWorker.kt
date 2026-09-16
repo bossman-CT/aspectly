@@ -10,6 +10,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import io.github.bossmanct.aspectly.config.Restore
 import io.github.bossmanct.aspectly.log.ActivityLog
+import kotlinx.coroutines.delay
 import java.util.concurrent.TimeUnit
 
 /**
@@ -40,9 +41,19 @@ class RestoreWorker(
     override suspend fun doWork(): Result {
         ActivityLog.record(applicationContext, "RESTORE attempt ${runAttemptCount + 1}")
 
+        var blocked = Prerequisite.check(applicationContext)
+
+        // If the user opted into self-repair, fix it rather than asking. adbd needs a
+        // moment to come up after the toggle flips, so this attempt still ends in a
+        // retry — the next one finds it listening.
+        if (blocked != Prerequisite.NONE && SelfRepair.isGranted(applicationContext)) {
+            SelfRepair.enableDebugging(applicationContext)
+            delay(3_000)
+            blocked = Prerequisite.check(applicationContext)
+        }
+
         // Retrying is pointless when a toggle is off — adbd is not running and will not
         // start on its own. Tell the user which one instead of burning attempts.
-        val blocked = Prerequisite.check(applicationContext)
         if (blocked != Prerequisite.NONE) {
             ActivityLog.record(applicationContext, "RESTORE blocked: ${blocked.title}")
             RestoreNotifier.notifyBlocked(applicationContext, blocked)

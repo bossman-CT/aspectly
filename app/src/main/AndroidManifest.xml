@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!--
         Loopback only. Aspectly talks to this device's own adbd over 127.0.0.1.
@@ -22,6 +23,22 @@
         toggle that is off. Never for marketing or engagement.
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
+        Cannot be granted by the user; Aspectly grants it to itself over the ADB channel
+        it already holds, and only with explicit consent.
+
+        Purpose: turning wireless debugging back on after a restart. Samsung's Auto
+        Blocker disables USB debugging at boot and wireless debugging depends on it, so
+        without this the app cannot reach adbd and cannot restore anything.
+
+        Note this is *narrower* than what Aspectly already has — an ADB key is shell
+        access, which is strictly more powerful. It is requested because it survives a
+        reboot, not because it grants more.
+    -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
 
     <application
         android:name=".AspectlyApp"

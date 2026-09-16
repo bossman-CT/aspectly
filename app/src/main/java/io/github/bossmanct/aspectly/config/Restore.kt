@@ -2,6 +2,7 @@ package io.github.bossmanct.aspectly.config
 
 import android.content.Context
 import io.github.bossmanct.aspectly.adb.AdbConnection
+import io.github.bossmanct.aspectly.adb.AdbSession
 import io.github.bossmanct.aspectly.adb.AdbShell
 import io.github.bossmanct.aspectly.adb.AspectlyCommands
 import io.github.bossmanct.aspectly.log.ActivityLog
@@ -17,7 +18,15 @@ import io.github.bossmanct.aspectly.log.ActivityLog
  */
 object Restore {
 
-    suspend fun run(context: Context): Result<String> {
+    suspend fun run(context: Context): Result<String> = AdbSession.exclusive {
+        runLocked(context)
+    }
+
+    suspend fun clearAll(context: Context): Result<String> = AdbSession.exclusive {
+        clearAllLocked(context)
+    }
+
+    private suspend fun runLocked(context: Context): Result<String> {
         val config = AspectlyConfig(context)
         val apps = config.forcedApps
         if (apps.isEmpty()) {
@@ -38,7 +47,7 @@ object Restore {
     }
 
     /** Returns every app to stock and forgets the configuration. */
-    suspend fun clearAll(context: Context): Result<String> {
+    private suspend fun clearAllLocked(context: Context): Result<String> {
         val config = AspectlyConfig(context)
         val apps = config.forcedApps
 
